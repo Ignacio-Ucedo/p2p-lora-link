@@ -1,0 +1,38 @@
+# ── Rust / esp-idf (firmware/) ────────────────────────────────────────────
+target/
+**/target/
+*.rs.bk
+Cargo.lock.orig
+.embuild/
+sdkconfig.old
+
+# ── Node / Expo / React Native (app/) ─────────────────────────────────────
+node_modules/
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.tsbuildinfo
+
+# Builds nativos
+android/app/build/
+android/build/
+android/.gradle/
+ios/build/
+ios/Pods/
+*.apk
+*.aab
+*.ipa
+
+# ── Entorno / secretos ────────────────────────────────────────────────────
+.env
+.env.local
+*.local
+
+# ── Sistema / editores ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+*.swp
