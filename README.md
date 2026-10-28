@@ -64,9 +64,9 @@ Detalle en [`docs/protocolo.md`](docs/protocolo.md).
 
 ## Estado / Kanban
 
-- [ ] Enlace LoRa P2P entre los 2 nodos LR1121.
-- [ ] Puente BLE/GATT en un nodo (advertising + notify + config).
-- [ ] App: escanear, conectar, visualizar métricas, configurar radio.
-- [ ] Banco (RSSI/SNR/PER) y luego prueba de alcance.
+El seguimiento del trabajo (tareas, estado, prioridades) vive en el tablero de
+GitHub Projects:
+
+👉 **[Kanban del proyecto](https://github.com/users/Ignacio-Ucedo/projects/2)**
 
 
