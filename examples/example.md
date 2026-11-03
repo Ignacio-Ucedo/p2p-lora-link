@@ -24,3 +24,16 @@ examples/
 └── esp32wroom-receiver.ino # Receptor
 
 ```
+
+## Prueba 2
+### Transmitter: Esp32S3 / Receiver: Esp32WROOM
+Estos archivos involucran una comunicación mediante un módulo LX1278-SMT usando
+TinyGo y Arduino. Es relevante para la detección del error de comunicación del
+transmisor, dado que se implementa la interfaz SPI por software, ya que la conexión
+directa sugerida para cada pin no lograba inicializarse.
+```
+examples/
+├── esp32s3-transmitter.go  # Transmisor
+└── esp32wroom-receiver.ino # Receptor
+
+```
