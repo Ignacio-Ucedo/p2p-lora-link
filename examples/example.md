@@ -27,13 +27,14 @@ LoRa, conexiones, soldaduras, etc.)
 >- DIO0: Blanco GPIO26
 
 <img src="examples/images/esp32s3wroom1278.png" width="480"/>
+<img src="examples/images/esp32c31278.png" width="480"/>
 
 ## Prueba 1
 ### Transmitter: Esp32S3 / Receiver: Esp32WROOM
 Estos archivos involucran una comunicación mediante un módulo LX1278-SMT usando
 Arduino
 ```
-examples/
+examples/prueba1/
 ├── esp32s3-transmitter.ino # Transmisor
 └── esp32wroom-receiver.ino # Receptor
 
@@ -46,8 +47,28 @@ TinyGo y Arduino. Es relevante para la detección del error de comunicación del
 transmisor, dado que se implementa la interfaz SPI por software, ya que la conexión
 directa sugerida para cada pin no lograba inicializarse.
 ```
-examples/
+examples/prueba2
 ├── esp32s3-transmitter.go  # Transmisor
+examples/prueba1
 └── esp32wroom-receiver.ino # Receptor
+
+```
+## Prueba 3
+### Transmitter: Esp32C3 / Receiver: Esp32C3
+En esta parte, se logró el envío de un mensaje de un módulo a otro de forma
+parcial, alegando errores en la comunicación
+```
+Receptor LoRa (ESP32-C3)
+RegVersion = 18 (esperado 18)
+LoRa init OK, esperando paquetes...
+Recibido: UHHello World, this is | RSSI: -164 dBm | SNR: 0 dB
+```
+También es útil mencionar que hay una reutilización de partes del código,
+como los pines o determinadas funciones que pueden abstraerse en otro archivo.
+
+```
+examples/prueba3
+├── esp32c3-transmitter.go  # Transmisor
+└── esp32c3-receiver.go     # Receptor
 
 ```
