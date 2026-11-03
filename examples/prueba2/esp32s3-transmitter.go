@@ -1,4 +1,4 @@
-package examples
+package prueba2
 
 import (
 	"machine"
