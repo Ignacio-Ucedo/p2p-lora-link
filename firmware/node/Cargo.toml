@@ -13,6 +13,7 @@ log = "0.4"
 esp-idf-hal = "0.46"
 esp-idf-svc = { version = "0.52", features = ["alloc"] }
 esp-idf-sys = { version = "0.37", features = ["binstart"] }
+esp32-nimble = "0.12"
 
 [build-dependencies]
 embuild = "0.33"

@@ -3,12 +3,15 @@
 //! Pinout LR1121 → ESP32-C3:  CS=7  CLK=4  MOSI=6  MISO=5  RESET=3  BUSY=10
 //!
 //! PASO 1 (hecho): `Lr1121::new()` valida SPI/soldadura leyendo GetVersion.
-//!
-//! PASO 2 (esto): configurar la radio a 916.8 MHz · SF7 · BW125 · CR4/5 · 14 dBm
-//!   y transmitir un paquete corto cada 2 s. Requiere ANTENA 915 conectada.
-//!   Sin BLE y sin segundo nodo: valida que el chip configura y transmite.
-//!   (A 14 dBm el driver usa el PA de baja potencia con VREG — el modo que no
-//!    dispara el fallo de sobrecorriente del PA.)
+//! PASO 2 (hecho): configura la radio a 916.8 MHz · SF7 · BW125 · CR4/5 y
+//!   transmite un paquete corto cada 2 s. Requiere ANTENA 915 conectada.
+//! PASO 2.5a (esto): smoke test de BLE. Levanta NimBLE, hace advertising como
+//!   "LORA-NODE-01" y expone UNA característica legible (info del dispositivo).
+//!   Objetivo: confirmar que el BLE arranca en esta placa y que un celular
+//!   (p.ej. nRF Connect) lo ve, se conecta y puede leerla — conviviendo con el
+//!   LoRa (BLE usa la radio 2.4 GHz interna del C3; el LR1121 es sub-GHz por SPI).
+//!   Las características reales del protocolo (config R/W, notify de paquetes)
+//!   vienen en el 2.5b.
 
 use esp_idf_hal::{
     delay::FreeRtos,
@@ -18,6 +21,7 @@ use esp_idf_hal::{
     units::Hertz,
 };
 use esp_idf_svc::log::EspLogger;
+use esp32_nimble::{utilities::BleUuid, BLEAdvertisementData, BLEDevice, NimbleProperties};
 use log::{error, info};
 use lr1121::{
     Lr1121, DEFAULT_BW_KHZ, DEFAULT_CR, DEFAULT_FREQ_HZ, DEFAULT_SF, DEFAULT_TX_DBM,
@@ -26,11 +30,15 @@ use lr1121::{
 const TX_INTERVAL_MS: u32 = 2_000;
 const PAYLOAD_LEN: u8 = 4;
 
+// UUIDs del servicio/característica (coinciden con protocol.ts del proyecto).
+const SVC: BleUuid = BleUuid::from_uuid16(0xff00);
+const CHAR_INFO: BleUuid = BleUuid::from_uuid16(0xff01); // lectura
+
 fn main() {
     esp_idf_svc::sys::link_patches();
     EspLogger::initialize_default();
 
-    info!("node: paso 2 — configurando radio y transmitiendo");
+    info!("node: paso 2.5a — radio + BLE smoke test");
 
     let p = Peripherals::take().unwrap();
 
@@ -58,7 +66,7 @@ fn main() {
     let busy: PinDriver<'static, _> = unsafe { core::mem::transmute(busy) };
     let reset: PinDriver<'static, _> = unsafe { core::mem::transmute(reset) };
 
-    // ─── Init (resetea + GetVersion; loguea chip_type/fw) ─────────────────────
+    // ─── Init + configurar TX (pasos 1 y 2) ───────────────────────────────────
     let mut radio = match Lr1121::new(spi, busy, reset) {
         Ok(r) => {
             info!("node: SPI OK — el LR1121 respondió.");
@@ -72,7 +80,6 @@ fn main() {
         }
     };
 
-    // ─── Configurar TX ────────────────────────────────────────────────────────
     if let Err(e) = radio.configure_tx(
         DEFAULT_FREQ_HZ,
         DEFAULT_SF,
@@ -88,14 +95,37 @@ fn main() {
     }
 
     info!(
-        "node: radio lista @ {:.3} MHz SF{} BW{} CR{} {}dBm — TX cada {} ms",
+        "node: radio lista @ {:.3} MHz SF{} BW{} CR{} {}dBm",
         DEFAULT_FREQ_HZ as f64 / 1e6,
         DEFAULT_SF,
         DEFAULT_BW_KHZ,
         DEFAULT_CR,
-        DEFAULT_TX_DBM,
-        TX_INTERVAL_MS
+        DEFAULT_TX_DBM
     );
+
+    // ─── BLE: advertising + una característica legible ─────────────────────────
+    let ble = BLEDevice::take();
+    let server = ble.get_server();
+    let service = server.create_service(SVC);
+
+    let char_info = service
+        .lock()
+        .create_characteristic(CHAR_INFO, NimbleProperties::READ);
+    char_info
+        .lock()
+        .set_value(b"LORA-NODE-01 rust/lr1121 916.8MHz");
+
+    ble.get_advertising()
+        .lock()
+        .set_data(
+            BLEAdvertisementData::new()
+                .name("LORA-NODE-01")
+                .add_service_uuid(SVC),
+        )
+        .expect("ble adv data");
+    ble.get_advertising().lock().start().expect("ble adv start");
+
+    info!("node: BLE advertising como \"LORA-NODE-01\" (servicio 0xff00, char 0xff01 R)");
 
     // ─── Loop de TX ───────────────────────────────────────────────────────────
     let mut seq: u16 = 0;
