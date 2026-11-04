@@ -1,0 +1,4 @@
+# Consola por USB-Serial/JTAG nativo del ESP32-C3 (SuperMini: no hay chip UART).
+# Sin esto los logs van a UART0 (GPIO20/21), que en el SuperMini no está cableado
+# al USB y no verías nada en `espflash --monitor`.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y

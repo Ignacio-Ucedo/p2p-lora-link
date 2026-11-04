@@ -29,6 +29,9 @@ ios/Pods/
 .env.local
 *.local
 
+# ── Documentación local (no versionar) ───────────────────────────────────
+firmware/CONEXIONADO-LR1121.md
+
 # ── Sistema / editores ────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
