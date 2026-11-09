@@ -40,7 +40,13 @@ pub enum Lr1121Error {
     TxTimeout,
     CrcError,
     NotInitialized,
+    /// GetVersion devolvió un chip_type distinto del LR1121 (0x03): el SPI no
+    /// lee bien (cableado/soldadura) o no es un LR1121. Lleva el valor leído.
+    UnexpectedChip(u8),
 }
+
+/// chip_type que reporta GetVersion para el LR1121.
+const LR1121_CHIP_TYPE: u8 = 0x03;
 
 impl std::fmt::Display for Lr1121Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f, "{:?}", self) }
@@ -319,6 +325,15 @@ impl Lr1121 {
         unsafe { lr11xx_system_get_version(HAL_CTX as *const _, &mut ver) };
         log::info!("lr1121 chip_type={:#04x} fw_type={} fw={:#06x}",
             ver.chip_type, ver.chip_firmware_type, ver.fw_version);
+
+        // Validar la identidad: si el chip_type no es 0x03, el SPI no está
+        // leyendo bien (cableado/soldadura) y seguir solo da errores río abajo
+        // (calibración/TX). Cortar acá con un error claro en vez de un "OK" falso.
+        if ver.chip_type != LR1121_CHIP_TYPE {
+            warn!("lr1121: chip_type inesperado {:#04x} (esperado {:#04x}) — revisar SPI/soldadura",
+                ver.chip_type, LR1121_CHIP_TYPE);
+            return Err(Lr1121Error::UnexpectedChip(ver.chip_type));
+        }
 
         // Reloj de RF: el módulo trae un TCXO que el chip debe alimentar por VTCXO.
         // Sin esto el oscilador de 32 MHz no arranca al transmitir (error
