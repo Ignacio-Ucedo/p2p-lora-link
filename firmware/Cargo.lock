@@ -57,6 +57,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "base64"
+version = "0.21.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
+
+[[package]]
 name = "bindgen"
 version = "0.72.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -980,6 +986,7 @@ dependencies = [
 name = "node"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "embuild",
  "esp-idf-hal",
  "esp-idf-svc",
@@ -987,6 +994,8 @@ dependencies = [
  "esp32-nimble",
  "log",
  "lr1121",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
