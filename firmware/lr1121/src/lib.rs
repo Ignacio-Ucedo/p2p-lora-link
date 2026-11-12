@@ -321,18 +321,36 @@ impl Lr1121 {
         }
         FreeRtos::delay_ms(20);
 
-        let mut ver = Lr11xxSystemVersion::default();
-        unsafe { lr11xx_system_get_version(HAL_CTX as *const _, &mut ver) };
-        log::info!("lr1121 chip_type={:#04x} fw_type={} fw={:#06x}",
-            ver.chip_type, ver.chip_firmware_type, ver.fw_version);
+        // GetVersion leído y parseado en Rust desde los bytes crudos. NO usamos la
+        // struct FFI lr11xx_system_version_t: su campo `type` es un enum C, cuyo
+        // tamaño/offset depende del ABI del target (-fshort-enums). En C3 (riscv,
+        // enum=4B) el offset coincidía por casualidad y andaba; en ESP32 (xtensa,
+        // enum=1B) se corría y chip_type se leía como 0x00 con el chip sano.
+        //
+        // Además esperamos BUSY bajo (chip listo tras el reset) ANTES de mandar el
+        // comando: si se manda mientras el chip todavía bootea, la respuesta sale
+        // corrida. Leemos la trama cruda [STAT1, hw, type, fw_hi, fw_lo].
+        let ver = unsafe {
+            let c = &mut *HAL_CTX;
+            for _ in 0..1000 { if c.busy.is_low() { break; } FreeRtos::delay_ms(1); }
+            let _ = c.spi.write(&[0x01u8, 0x01u8]);
+            for _ in 0..1000 { if c.busy.is_low() { break; } FreeRtos::delay_ms(1); }
+            let mut buf = [0u8; 6];
+            let _ = c.spi.read(&mut buf);
+            buf
+        };
+        let chip_type = ver[2];
+        let fw = ((ver[3] as u16) << 8) | ver[4] as u16;
+        log::info!("lr1121 chip_type={:#04x} hw={:#04x} stat1={:#04x} fw={:#06x}",
+            chip_type, ver[1], ver[0], fw);
 
         // Validar la identidad: si el chip_type no es 0x03, el SPI no está
         // leyendo bien (cableado/soldadura) y seguir solo da errores río abajo
         // (calibración/TX). Cortar acá con un error claro en vez de un "OK" falso.
-        if ver.chip_type != LR1121_CHIP_TYPE {
+        if chip_type != LR1121_CHIP_TYPE {
             warn!("lr1121: chip_type inesperado {:#04x} (esperado {:#04x}) — revisar SPI/soldadura",
-                ver.chip_type, LR1121_CHIP_TYPE);
-            return Err(Lr1121Error::UnexpectedChip(ver.chip_type));
+                chip_type, LR1121_CHIP_TYPE);
+            return Err(Lr1121Error::UnexpectedChip(chip_type));
         }
 
         // Reloj de RF: el módulo trae un TCXO que el chip debe alimentar por VTCXO.
