@@ -403,14 +403,16 @@ impl Lr1121 {
             };
             check(lr11xx_radio_set_lora_mod_params(HAL_CTX as *const _, &mp))?;
 
-            // LP PA: sub-GHz 824–928 MHz, VREG supply, up to +14 dBm.
-            // HP PA requires VBAT supply for correct operation; using HP with VREG
-            // triggers PA overcurrent detection, aborting TX and raising IRQ_ERR
-            // instead of IRQ_TX_DONE.
-            let pa = Lr11xxRadioPaCfg { pa_sel: 0, pa_reg_supply: 0, pa_duty_cycle: 4, pa_hp_sel: 0 };
+            // HP PA (pa_sel=1): la antena de ESTE módulo (CORE1121) cuelga de
+            // RFO_HP_LF (ver CONEXIONADO-LR1121.md). Con LP PA (pa_sel=0) la RF sale
+            // por RFO_LP, que NO está cableado a la antena → TX_DONE pero NO radia.
+            // El HP PA EXIGE supply VBAT (pa_reg_supply=1); con VREG dispara
+            // sobrecorriente y aborta el TX.
+            let pa = Lr11xxRadioPaCfg { pa_sel: 1, pa_reg_supply: 1, pa_duty_cycle: 4, pa_hp_sel: 7 };
             check(lr11xx_radio_set_pa_cfg(HAL_CTX as *const _, &pa))?;
 
-            // TX power + ramp 200 µs (0x02)
+            // TX power + ramp 200 µs (0x02). Enlace corto: no subir de +14 dBm
+            // (front-end RX del LR1121 aguanta máx 0 dBm; a 4 m llega ~-30 dBm).
             check(lr11xx_radio_set_tx_params(HAL_CTX as *const _, power_dbm, 0x02))?;
 
             // Packet params
