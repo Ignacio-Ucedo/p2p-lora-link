@@ -24,12 +24,19 @@ pub const DEFAULT_TX_DBM: i8 = 14;
 
 const IRQ_TX_DONE:  u32 = 1 << 2;  // 0x000004
 const IRQ_RX_DONE:  u32 = 1 << 3;  // 0x000008
+const IRQ_PREAMBLE: u32 = 1 << 4;  // 0x000010  — preámbulo detectado (hay energía LoRa)
+const IRQ_HDR_OK:   u32 = 1 << 5;  // 0x000020  — header válido (sync+header OK)
+const IRQ_HDR_ERR:  u32 = 1 << 6;  // 0x000040  — error de header
 const IRQ_CRC_ERR:  u32 = 1 << 7;  // 0x000080  — CRC error del paquete recibido
 const IRQ_TIMEOUT:  u32 = 1 << 10; // 0x000400  — RX/TX timeout
 const IRQ_CMD_ERR:  u32 = 1 << 22; // 0x400000  — comando rechazado (opcode/param inválido)
 const IRQ_HW_ERR:   u32 = 1 << 23; // 0x800000  — error de HW (calibración/PLL)
 // Cualquier condición de error que deba abortar una operación:
 const IRQ_ERR: u32 = IRQ_CRC_ERR | IRQ_CMD_ERR | IRQ_HW_ERR;
+
+// Valor de timeout (en pasos RTC) que pone la radio en RX continuo. Va por
+// lr11xx_radio_set_rx_with_timeout_in_rtc_step, NO por set_rx (que toma ms).
+const RX_CONTINUOUS: u32 = 0xFFFFFF;
 
 // ─── Tipos públicos ───────────────────────────────────────────────────────────
 
@@ -92,6 +99,11 @@ pub unsafe extern "C" fn lr11xx_hal_write(
     data: *const u8, data_length: u16,
 ) -> u8 {
     if HAL_CTX.is_null() { return 1; }
+    // Esperar a que el chip esté LIBRE (BUSY bajo) ANTES de mandar el comando. Sin
+    // esto, si la radio está ocupada (p.ej. tareas internas en RX continuo) el
+    // comando se rechaza con CMD_ERROR. El contrato del LR11xx exige BUSY bajo
+    // antes de cada transacción, no sólo después.
+    if !wait_busy_low() { return 2; }
     let ctx = &mut *HAL_CTX;
     let cmd = core::slice::from_raw_parts(command, command_length as usize);
     let payload = if data_length > 0 { core::slice::from_raw_parts(data, data_length as usize) } else { &[] };
@@ -110,6 +122,8 @@ pub unsafe extern "C" fn lr11xx_hal_read(
     data: *mut u8, data_length: u16,
 ) -> u8 {
     if HAL_CTX.is_null() { return 1; }
+    // BUSY bajo ANTES de mandar el comando (ver nota en lr11xx_hal_write).
+    if !wait_busy_low() { return 2; }
     let ctx = &mut *HAL_CTX;
     let cmd = core::slice::from_raw_parts(command, command_length as usize);
     if ctx.spi.write(cmd).is_err() { return 1; }
@@ -251,9 +265,20 @@ extern "C" {
 
     // RX
     fn lr11xx_radio_set_rx(ctx: *const core::ffi::c_void, timeout_ms: u32) -> u8;
+    // RX con timeout en pasos RTC (no en ms). RX CONTINUO ⇒ pasar 0xFFFFFF aquí:
+    // set_rx() toma MILISEGUNDOS y 0xFFFFFF ms se desborda al convertir a pasos RTC
+    // (24 bits) ⇒ el chip rechaza el comando (CMD_ERR). El sentinel de "continuo"
+    // es 0xFFFFFF pasos RTC, sólo accesible por esta variante.
+    fn lr11xx_radio_set_rx_with_timeout_in_rtc_step(ctx: *const core::ffi::c_void, timeout_rtc: u32) -> u8;
     fn lr11xx_radio_get_rx_buffer_status(ctx: *const core::ffi::c_void, s: *mut Lr11xxRadioRxBufferStatus) -> u8;
     fn lr11xx_radio_get_lora_pkt_status(ctx: *const core::ffi::c_void, s: *mut Lr11xxRadioLoraPacketStatus) -> u8;
-    fn lr11xx_regmem_read_buffer8(ctx: *const core::ffi::c_void, buf: *mut u8, len: u8) -> u8;
+    // RSSI instantánea del canal (dBm). Útil como diagnóstico: en RX sin señal da
+    // el piso de ruido (~-100/-120); durante un burst cercano sube fuerte.
+    fn lr11xx_radio_get_rssi_inst(ctx: *const core::ffi::c_void, rssi_dbm: *mut i8) -> u8;
+    // OJO: read_buffer8 lleva `offset` ANTES de `length` (a diferencia de
+    // write_buffer8). Omitirlo desalinea los args → `length` basura → el chip
+    // intenta leer decenas de miles de bytes y la HAL asigna un Vec gigante → crash.
+    fn lr11xx_regmem_read_buffer8(ctx: *const core::ffi::c_void, buf: *mut u8, offset: u8, len: u8) -> u8;
 
     // IRQ / errores
     fn lr11xx_system_get_and_clear_irq_status(ctx: *const core::ffi::c_void, irq: *mut u32) -> u8;
@@ -302,6 +327,8 @@ pub fn ldro(sf: u8, bw_khz: u32) -> u8 {
 
 pub struct Lr1121 {
     _ctx: Box<HalCtx>,
+    /// OR sticky de todos los IRQ vistos en try_receive (diagnóstico de actividad RX).
+    rx_seen: u32,
 }
 
 impl Lr1121 {
@@ -321,18 +348,36 @@ impl Lr1121 {
         }
         FreeRtos::delay_ms(20);
 
-        let mut ver = Lr11xxSystemVersion::default();
-        unsafe { lr11xx_system_get_version(HAL_CTX as *const _, &mut ver) };
-        log::info!("lr1121 chip_type={:#04x} fw_type={} fw={:#06x}",
-            ver.chip_type, ver.chip_firmware_type, ver.fw_version);
+        // GetVersion leído y parseado en Rust desde los bytes crudos. NO usamos la
+        // struct FFI lr11xx_system_version_t: su campo `type` es un enum C, cuyo
+        // tamaño/offset depende del ABI del target (-fshort-enums). En C3 (riscv,
+        // enum=4B) el offset coincidía por casualidad y andaba; en ESP32 (xtensa,
+        // enum=1B) se corría y chip_type se leía como 0x00 con el chip sano.
+        //
+        // Además esperamos BUSY bajo (chip listo tras el reset) ANTES de mandar el
+        // comando: si se manda mientras el chip todavía bootea, la respuesta sale
+        // corrida. Leemos la trama cruda [STAT1, hw, type, fw_hi, fw_lo].
+        let ver = unsafe {
+            let c = &mut *HAL_CTX;
+            for _ in 0..1000 { if c.busy.is_low() { break; } FreeRtos::delay_ms(1); }
+            let _ = c.spi.write(&[0x01u8, 0x01u8]);
+            for _ in 0..1000 { if c.busy.is_low() { break; } FreeRtos::delay_ms(1); }
+            let mut buf = [0u8; 6];
+            let _ = c.spi.read(&mut buf);
+            buf
+        };
+        let chip_type = ver[2];
+        let fw = ((ver[3] as u16) << 8) | ver[4] as u16;
+        log::info!("lr1121 chip_type={:#04x} hw={:#04x} stat1={:#04x} fw={:#06x}",
+            chip_type, ver[1], ver[0], fw);
 
         // Validar la identidad: si el chip_type no es 0x03, el SPI no está
         // leyendo bien (cableado/soldadura) y seguir solo da errores río abajo
         // (calibración/TX). Cortar acá con un error claro en vez de un "OK" falso.
-        if ver.chip_type != LR1121_CHIP_TYPE {
+        if chip_type != LR1121_CHIP_TYPE {
             warn!("lr1121: chip_type inesperado {:#04x} (esperado {:#04x}) — revisar SPI/soldadura",
-                ver.chip_type, LR1121_CHIP_TYPE);
-            return Err(Lr1121Error::UnexpectedChip(ver.chip_type));
+                chip_type, LR1121_CHIP_TYPE);
+            return Err(Lr1121Error::UnexpectedChip(chip_type));
         }
 
         // Reloj de RF: el módulo trae un TCXO que el chip debe alimentar por VTCXO.
@@ -359,7 +404,7 @@ impl Lr1121 {
             log::info!("lr1121: TCXO 1.8V + calibración OK, sin errores");
         }
 
-        Ok(Lr1121 { _ctx: ctx })
+        Ok(Lr1121 { _ctx: ctx, rx_seen: 0 })
     }
 
     /// Configura la radio para TX en los parámetros indicados.
@@ -385,14 +430,17 @@ impl Lr1121 {
             };
             check(lr11xx_radio_set_lora_mod_params(HAL_CTX as *const _, &mp))?;
 
-            // LP PA: sub-GHz 824–928 MHz, VREG supply, up to +14 dBm.
-            // HP PA requires VBAT supply for correct operation; using HP with VREG
-            // triggers PA overcurrent detection, aborting TX and raising IRQ_ERR
-            // instead of IRQ_TX_DONE.
-            let pa = Lr11xxRadioPaCfg { pa_sel: 0, pa_reg_supply: 0, pa_duty_cycle: 4, pa_hp_sel: 0 };
+            // HP PA (pa_sel=1): la antena de ESTE módulo cuelga de RFO_HP_LF (ver
+            // CONEXIONADO-LR1121.md). Con LP PA (pa_sel=0) la RF sale por RFO_LP,
+            // que NO está cableado a la antena → TX_DONE pero NO radia (y el RX ve
+            // sólo ruido). El HP PA EXIGE supply VBAT (pa_reg_supply=1); con VREG
+            // dispara sobrecorriente y aborta el TX.
+            let pa = Lr11xxRadioPaCfg { pa_sel: 1, pa_reg_supply: 1, pa_duty_cycle: 4, pa_hp_sel: 7 };
             check(lr11xx_radio_set_pa_cfg(HAL_CTX as *const _, &pa))?;
 
-            // TX power + ramp 200 µs (0x02)
+            // TX power + ramp 200 µs (0x02). OJO enlace corto: el front-end del
+            // LR1121 aguanta máx 0 dBm de entrada; a 4 m con +14 dBm llega ~-30 dBm,
+            // ok, pero no subir potencia ni acercar más sin bajar power_dbm.
             check(lr11xx_radio_set_tx_params(HAL_CTX as *const _, power_dbm, 0x02))?;
 
             // Packet params
@@ -445,7 +493,24 @@ impl Lr1121 {
 
     /// Inicia modo RX continuo. Llamar después de configure_rx().
     pub fn start_rx(&mut self) -> Result<(), Lr1121Error> {
-        unsafe { check(lr11xx_radio_set_rx(HAL_CTX as *const _, 0xFFFFFF)) }
+        unsafe { check(lr11xx_radio_set_rx_with_timeout_in_rtc_step(HAL_CTX as *const _, RX_CONTINUOUS)) }
+    }
+
+    /// RSSI instantánea del canal en dBm (diagnóstico). En RX sin señal ≈ piso de
+    /// ruido; durante un burst cercano sube fuerte. Fuera de RX el valor no es fiable.
+    pub fn rssi_inst(&mut self) -> i8 {
+        let mut rssi: i8 = 0;
+        unsafe { lr11xx_radio_get_rssi_inst(HAL_CTX as *const _, &mut rssi) };
+        rssi
+    }
+
+    /// Diagnóstico: (preámbulo, header_ok, header_err, crc_err, rx_done) vistos
+    /// ALGUNA vez desde el arranque. Si `preámbulo` es false con un TX al aire,
+    /// la radio no está realmente en RX (o no llega señal).
+    pub fn rx_seen_flags(&self) -> (bool, bool, bool, bool, bool) {
+        let s = self.rx_seen;
+        (s & IRQ_PREAMBLE != 0, s & IRQ_HDR_OK != 0, s & IRQ_HDR_ERR != 0,
+         s & IRQ_CRC_ERR != 0, s & IRQ_RX_DONE != 0)
     }
 
     /// Transmite `payload`. Bloquea hasta TX_DONE o timeout real de 5 s.
@@ -490,14 +555,23 @@ impl Lr1121 {
     }
 
     /// Non-blocking: retorna un paquete si hay uno disponible, None si no.
-    /// Después de retornar un paquete, re-arranca RX continuo.
+    /// En RX CONTINUO la radio permanece en RX tras cada paquete/error: NO se
+    /// re-arma con SetRx (re-emitir SetRx estando ya en RX continuo es rechazado
+    /// por el chip con CMD_ERR, y como se llamaba en cada evento se auto-perpetuaba).
     pub fn try_receive(&mut self) -> Result<Option<RxPacket>, Lr1121Error> {
         let mut irq: u32 = 0;
         unsafe { lr11xx_system_get_and_clear_irq_status(HAL_CTX as *const _, &mut irq) };
+        self.rx_seen |= irq; // diagnóstico: ¿qué eventos vio la radio alguna vez?
 
-        if irq & IRQ_ERR != 0 {
-            warn!("lr1121: error en paquete recibido (CRC/header) irq={:#010x}", irq);
-            unsafe { lr11xx_radio_set_rx(HAL_CTX as *const _, 0xFFFFFF) };
+        // CMD_ERR en RX es un quirk espúreo del LR1121 (igual que el primer set_tx,
+        // ver transmit): la radio SÍ sigue en RX. get_and_clear ya lo limpió, así
+        // que lo ignoramos —no es un error real ni un paquete—.
+        if irq & IRQ_HW_ERR != 0 {
+            warn!("lr1121: HW error en RX irq={:#010x} errores={:#06x}", irq, read_errors());
+            return Err(Lr1121Error::CommandFailed((irq >> 16) as u8));
+        }
+        if irq & IRQ_CRC_ERR != 0 {
+            // Paquete con CRC inválido (corrupto / falsa detección sobre ruido).
             return Err(Lr1121Error::CrcError);
         }
 
@@ -512,15 +586,18 @@ impl Lr1121 {
             check(lr11xx_radio_get_rx_buffer_status(HAL_CTX as *const _, &mut buf_st))?;
         }
 
-        let len = buf_st.payload_length as usize;
-        let mut payload = vec![0u8; len];
-        unsafe {
-            check(lr11xx_regmem_read_buffer8(HAL_CTX as *const _, payload.as_mut_ptr(), len as u8))?;
-            lr11xx_radio_set_rx(HAL_CTX as *const _, 0xFFFFFF); // re-arm RX
+        let len = buf_st.payload_length as usize; // u8 ⇒ ≤255
+        let offset = buf_st.buffer_start_pointer;  // dónde empieza el paquete en el buffer RX
+        let mut buf = [0u8; 255];
+        if len > 0 {
+            unsafe {
+                check(lr11xx_regmem_read_buffer8(HAL_CTX as *const _, buf.as_mut_ptr(), offset, len as u8))?;
+                // Sin re-arm: en RX continuo la radio sigue escuchando por sí sola.
+            }
         }
 
         Ok(Some(RxPacket {
-            payload,
+            payload: buf[..len].to_vec(),
             rssi_dbm: pkt_st.rssi_pkt_in_dbm as i16,
             snr_db: pkt_st.snr_pkt_in_db,
         }))
@@ -568,7 +645,7 @@ impl Lr1121 {
                 let len = buf_st.payload_length as usize;
                 let mut payload = vec![0u8; len];
                 unsafe {
-                    check(lr11xx_regmem_read_buffer8(HAL_CTX as *const _, payload.as_mut_ptr(), len as u8))?;
+                    check(lr11xx_regmem_read_buffer8(HAL_CTX as *const _, payload.as_mut_ptr(), buf_st.buffer_start_pointer, len as u8))?;
                 }
                 return Ok(Some(RxPacket {
                     payload,

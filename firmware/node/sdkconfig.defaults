@@ -1,3 +1,10 @@
+# Stack del main task: 16 KB de margen (default 3584 B). El camino de RX
+# (FFI anidado de SWDR001 + buffer de 255 B en stack + formateo de logs) es
+# profundo; con el default queda justo. NOTA: el crash "allocation of ~1GB" al
+# recibir NO era esto —era el FFI de read_buffer8 sin `offset`—, pero el margen
+# extra es barato y sano.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+
 # Consola por USB-Serial/JTAG nativo del ESP32-C3 (SuperMini: no hay chip UART).
 # Sin esto los logs van a UART0 (GPIO20/21), que en el SuperMini no está cableado
 # al USB y no verías nada en `espflash --monitor`.
