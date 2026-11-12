@@ -1,6 +1,7 @@
 //! node — nodo transmisor LoRa (ESP32-C3 + LR1121) con control por BLE GATT.
 //!
-//! Pinout LR1121 → ESP32-C3:  CS=7  CLK=4  MOSI=6  MISO=5  RESET=3  BUSY=10
+//! Pinout LR1121 → ESP32 clásico (devkit):  CS=4  CLK=18  MOSI=23  MISO=19  RESET=21  BUSY=22
+//! (rama esp32-devkit-node — NO usar GPIO6-11 = flash, ni GPIO1/3 = UART0 consola)
 //!
 //! PASO 1 (hecho): `Lr1121::new()` valida SPI/soldadura (GetVersion).
 //! PASO 2 (hecho): radio @ 916.8 MHz · SF7 · BW125 · CR4/5, TX cada 2 s.
@@ -109,27 +110,27 @@ fn main() {
 
     let p = Peripherals::take().unwrap();
 
-    // ─── SPI2: CLK=GPIO4  MOSI=GPIO6  MISO=GPIO5 ──────────────────────────────
+    // ─── SPI2: CLK=GPIO18  MOSI=GPIO23  MISO=GPIO19 ───────────────────────────
     let spi_driver = SpiDriver::new::<SPI2>(
         p.spi2,
-        p.pins.gpio4,
-        p.pins.gpio6,
-        Some(p.pins.gpio5),
+        p.pins.gpio18,
+        p.pins.gpio23,
+        Some(p.pins.gpio19),
         &esp_idf_hal::spi::SpiDriverConfig::new(),
     )
     .expect("SPI driver");
 
     let spi = SpiDeviceDriver::new(
         spi_driver,
-        Some(p.pins.gpio7), // CS
+        Some(p.pins.gpio4), // CS
         &SpiConfig::new().baudrate(Hertz(8_000_000)),
     )
     .expect("SPI device");
     let spi: SpiDeviceDriver<'static, _> = unsafe { core::mem::transmute(spi) };
 
-    // ─── GPIO: BUSY=GPIO10  RESET=GPIO3 ───────────────────────────────────────
-    let busy = PinDriver::input(p.pins.gpio10, Pull::Floating).expect("BUSY");
-    let reset = PinDriver::output(p.pins.gpio3).expect("RESET");
+    // ─── GPIO: BUSY=GPIO22  RESET=GPIO21 ──────────────────────────────────────
+    let busy = PinDriver::input(p.pins.gpio22, Pull::Floating).expect("BUSY");
+    let reset = PinDriver::output(p.pins.gpio21).expect("RESET");
     let busy: PinDriver<'static, _> = unsafe { core::mem::transmute(busy) };
     let reset: PinDriver<'static, _> = unsafe { core::mem::transmute(reset) };
 
@@ -170,7 +171,7 @@ fn main() {
     // DEVICE_INFO (R)
     let char_info = service.lock().create_characteristic(CHAR_INFO, NimbleProperties::READ);
     char_info.lock().set_value(&json_bytes(&serde_json::json!({
-        "name":     "LORA-NODE-01",
+        "name":     "LORA-NODE-02",
         "firmware": env!("CARGO_PKG_VERSION"),
         "role":     "node",
     })));
@@ -234,11 +235,11 @@ fn main() {
 
     // Advertising
     ble.get_advertising().lock()
-        .set_data(BLEAdvertisementData::new().name("LORA-NODE-01").add_service_uuid(SVC))
+        .set_data(BLEAdvertisementData::new().name("LORA-NODE-02").add_service_uuid(SVC))
         .expect("ble adv data");
     ble.get_advertising().lock().start().expect("ble adv start");
 
-    info!("node: BLE advertising como \"LORA-NODE-01\"");
+    info!("node: BLE advertising como \"LORA-NODE-02\"");
 
     // ─── Loop de TX (controlado por el estado que mueve el BLE) ───────────────
     let mut seq: u16 = 0;

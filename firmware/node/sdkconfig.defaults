@@ -1,7 +1,7 @@
-# Consola por USB-Serial/JTAG nativo del ESP32-C3 (SuperMini: no hay chip UART).
-# Sin esto los logs van a UART0 (GPIO20/21), que en el SuperMini no está cableado
-# al USB y no verías nada en `espflash --monitor`.
-CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# NOTA (rama esp32-devkit-node): el ESP32 clásico NO tiene USB-Serial/JTAG nativo;
+# la consola va por UART0 (GPIO1/GPIO3) a través del puente USB-UART del devkit,
+# que es el default. Por eso NO forzamos USB_SERIAL_JTAG acá (rompería la consola).
+# En el C3 (rama rust-lr1121) sí hace falta: CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
 
 # BLE / NimBLE — requerido por esp32-nimble. El C3 tiene BLE interno (2.4 GHz),
 # independiente del LR1121 (sub-GHz por SPI): no compiten.
