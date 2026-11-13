@@ -46,8 +46,8 @@ Son los `DEFAULT_*` del driver `lr1121`.
 - **Fixes del driver sin consolidar:** el bring-up del RX agregó varios fixes a
   `lr1121/lib.rs` en `rust-lr1121` (CMD_ERR espúreo, set_rx RTC-step, HP PA, y el
   FFI de `read_buffer8` con `offset`) — falta llevarlos a `esp32-devkit-node`/main.
-  El fix del **HP PA** del TX sí está flasheado en el nodo 2 (fuente en un stash
-  de `esp32-devkit-node`, sin commitear). El fix de ABI del `GetVersion` idem.
+  El fix del **HP PA** del TX ya está commiteado en `esp32-devkit-node` (nodo 2).
+  El fix de ABI del `GetVersion` idem (vive en ambas ramas).
 
 ## Gotchas de flasheo
 
@@ -56,3 +56,12 @@ Son los `DEFAULT_*` del driver `lr1121`.
 - No dejar un nodo alimentado por el USB de la PC durante una suspensión: así se
   perdió el primer C3 (latch-up).
 - El puerto es exclusivo: cerrar la pestaña del monitor serial antes de flashear.
+
+## Gotchas de alimentación (pruebas de campo)
+
+- **Powerbank: cuidado con el auto-apagado por baja carga.** El TX en powerbank
+  puede no encender o reiniciarse según el puerto (1 A vs 2 A): no es capacidad
+  (tira <200 mA), es que el powerbank corta el puerto si el consumo cae bajo
+  ~50-100 mA. Usar un puerto/powerbank que no se auto-apague ("low current" /
+  "always-on"). Síntoma en el RX: `seq` salta a números bajos y el PER se va a
+  99.9% hasta resetear con `r`.
