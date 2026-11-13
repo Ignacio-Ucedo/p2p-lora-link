@@ -23,6 +23,9 @@ use esp_idf_hal::{
 use esp_idf_svc::log::EspLogger;
 use log::{error, info, warn};
 use lr1121::{Lr1121, RxPacket, DEFAULT_BW_KHZ, DEFAULT_CR, DEFAULT_FREQ_HZ, DEFAULT_SF};
+use std::io::Read;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 /// Extrae el seq u16 de un paquete `[b'P', b'2', seq_lo, seq_hi]`.
 /// Devuelve None si no tiene el prefijo/longitud esperados.
@@ -128,11 +131,40 @@ fn main() {
         DEFAULT_FREQ_HZ as f64 / 1e6, DEFAULT_SF, DEFAULT_BW_KHZ, DEFAULT_CR
     );
 
+    // Reset de stats por comando serial: escribir `r` (+Enter) en el monitor pone
+    // los contadores en cero — útil para medir PER por-distancia en una prueba de
+    // rango sin arrastrar las pérdidas de los puntos anteriores. Hilo aparte que
+    // bloquea leyendo stdin (consola USB-JTAG) y levanta un flag.
+    let reset_flag = Arc::new(AtomicBool::new(false));
+    {
+        let rf = reset_flag.clone();
+        std::thread::spawn(move || {
+            let mut stdin = std::io::stdin();
+            let mut byte = [0u8; 1];
+            loop {
+                match stdin.read(&mut byte) {
+                    Ok(0) | Err(_) => FreeRtos::delay_ms(50), // sin datos/EOF: no quemar CPU
+                    Ok(_) => {
+                        if byte[0] == b'r' || byte[0] == b'R' {
+                            rf.store(true, Ordering::Relaxed);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     // ─── Loop de recepción ────────────────────────────────────────────────────
     let mut stats = LinkStats::new();
     let mut last_beat = std::time::Instant::now();
     let mut rssi_max: i8 = -128;
     loop {
+        if reset_flag.swap(false, Ordering::Relaxed) {
+            stats = LinkStats::new();
+            rssi_max = -128;
+            info!("rx: — stats reseteadas por comando 'r' —");
+        }
+
         // Muestrear RSSI instantánea cada vuelta; guardar el pico de la ventana.
         // Si la radio está en RX, durante los bursts del TX sube fuerte.
         let r = radio.rssi_inst();
