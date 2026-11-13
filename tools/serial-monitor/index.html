@@ -54,6 +54,9 @@
   .lvl-E { color: var(--err); }
   .lvl-W { color: var(--warn); }
   .lvl-I { color: var(--ok); }
+  /* Paquete recibido (rx seq=…): azul, para distinguirlo del heartbeat "vivo".
+     Declarado después de .lvl-* para ganar por orden ante igual especificidad. */
+  .pkt { color: #4aa3ff; }
 
   footer {
     display: flex; gap: 8px; padding: 10px 14px;
@@ -159,6 +162,8 @@
     if (cls === "rx") {
       const m = /^([EWID])\s*\(/.exec(text);
       if (m) body.classList.add("lvl-" + m[1]);
+      // Línea de paquete recibido → azul (se impone sobre el color de nivel).
+      if (/rx seq=/.test(text)) body.classList.add("pkt");
     }
     body.textContent = text;
     line.appendChild(body);
