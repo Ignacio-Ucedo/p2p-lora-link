@@ -1,0 +1,34 @@
+19:58:17.210I (29154) rx: rx seq=41 rssi=-46dBm snr=15dB | rcv=14 lost=0 per=0.0%
+19:58:17.886» r
+19:58:17.929I (29874) rx: rx: — stats reseteadas por comando 'r' —
+19:58:18.930I (30874) rx: rx: vivo @ 916.800MHz SF7 | rcv=0 lost=0 per=0.0% | rssi_pico=-115dBm | visto: pre=1 hdr=1 hdrErr=0 crc=0 rxDone=1
+19:58:19.250I (31194) rx: rx seq=42 rssi=-46dBm snr=14dB | rcv=1 lost=0 per=0.0%
+19:58:21.280I (33224) rx: rx seq=43 rssi=-45dBm snr=14dB | rcv=2 lost=0 per=0.0%
+19:58:23.310I (35254) rx: rx seq=44 rssi=-46dBm snr=14dB | rcv=3 lost=0 per=0.0%
+19:58:23.960I (35904) rx: rx: vivo @ 916.800MHz SF7 | rcv=3 lost=0 per=0.0% | rssi_pico=-45dBm | visto: pre=1 hdr=1 hdrErr=0 crc=0 rxDone=1
+19:58:25.360I (37304) rx: rx seq=45 rssi=-46dBm snr=14dB | rcv=4 lost=0 per=0.0%
+19:58:27.390I (39334) rx: rx seq=46 rssi=-46dBm snr=14dB | rcv=5 lost=0 per=0.0%
+19:58:29.000I (40944) rx: rx: vivo @ 916.800MHz SF7 | rcv=5 lost=0 per=0.0% | rssi_pico=-45dBm | visto: pre=1 hdr=1 hdrErr=0 crc=0 rxDone=1
+19:58:29.440I (41384) rx: rx seq=47 rssi=-46dBm snr=16dB | rcv=6 lost=0 per=0.0%
+19:58:31.470I (43414) rx: rx seq=48 rssi=-46dBm snr=14dB | rcv=7 lost=0 per=0.0%
+19:58:33.500I (45444) rx: rx seq=49 rssi=-46dBm snr=15dB | rcv=8 lost=0 per=0.0%
+19:58:34.031I (45974) rx: rx: vivo @ 916.800MHz SF7 | rcv=8 lost=0 per=0.0% | rssi_pico=-46dBm | visto: pre=1 hdr=1 hdrErr=0 crc=0 rxDone=1
+19:58:35.540I (47484) rx: rx seq=50 rssi=-46dBm snr=15dB | rcv=9 lost=0 per=0.0%
+19:58:37.610I (49554) rx: rx seq=51 rssi=-46dBm snr=14dB | rcv=10 lost=0 per=0.0%
+19:58:39.050I (50994) rx: rx: vivo @ 916.800MHz SF7 | rcv=10 lost=0 per=0.0% | rssi_pico=-46dBm | visto: pre=1 hdr=1 hdrErr=0 crc=0 rxDone=1
+19:58:39.651I (51594) rx: rx seq=52 rssi=-46dBm snr=15dB | rcv=11 lost=0 per=0.0%
+19:58:41.680I (53624) rx: rx seq=53 rssi=-46dBm snr=14dB | rcv=12 lost=0 per=0.0%
+19:58:43.710I (55654) rx: rx seq=54 rssi=-46dBm snr=15dB | rcv=13 lost=0 per=0.0%
+19:58:44.081I (56024) rx: rx: vivo @ 916.800MHz SF7 | rcv=13 lost=0 per=0.0% | rssi_pico=-45dBm | visto: pre=1 hdr=1 hdrErr=0 crc=0 rxDone=1
+19:58:45.761I (57704) rx: rx seq=55 rssi=-46dBm snr=14dB | rcv=14 lost=0 per=0.0%
+19:58:47.791I (59734) rx: rx seq=56 rssi=-46dBm snr=15dB | rcv=15 lost=0 per=0.0%
+19:58:49.121I (61064) rx: rx: vivo @ 916.800MHz SF7 | rcv=15 lost=0 per=0.0% | rssi_pico=-45dBm | visto: pre=1 hdr=1 hdrErr=0 crc=0 rxDone=1
+19:58:49.831I (61774) rx: rx seq=57 rssi=-46dBm snr=15dB | rcv=16 lost=0 per=0.0%
+19:58:51.861I (63804) rx: rx seq=58 rssi=-46dBm snr=15dB | rcv=17 lost=0 per=0.0%
+19:58:53.931I (65874) rx: rx seq=59 rssi=-46dBm snr=15dB | rcv=18 lost=0 per=0.0%
+19:58:54.142I (66084) rx: rx: vivo @ 916.800MHz SF7 | rcv=18 lost=0 per=0.0% | rssi_pico=-45dBm | visto: pre=1 hdr=1 hdrErr=0 crc=0 rxDone=1
+19:58:55.941I (67884) rx: rx seq=60 rssi=-46dBm snr=14dB | rcv=19 lost=0 per=0.0%
+19:58:58.011I (69954) rx: rx seq=61 rssi=-46dBm snr=15dB | rcv=20 lost=0 per=0.0%
+19:58:59.172I (71114) rx: rx: vivo @ 916.800MHz SF7 | rcv=20 lost=0 per=0.0% | rssi_pico=-45dBm | visto: pre=1 hdr=1 hdrErr=0 crc=0 rxDone=1
+19:59:00.051I (71994) rx: rx seq=62 rssi=-46dBm snr=15dB | rcv=21 lost=0 per=0.0%
+19:59:01.634— desconectado —

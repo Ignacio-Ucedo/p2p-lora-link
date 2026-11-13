@@ -36,6 +36,8 @@ firmware/CONEXIONADO-LR1121.md
 .DS_Store
 Thumbs.db
 *.log
+# ...pero los logs de mediciones de rango SÍ se versionan (son datos, no ruido):
+!mediciones/*.log
 .idea/
 .vscode/
 *.swp
