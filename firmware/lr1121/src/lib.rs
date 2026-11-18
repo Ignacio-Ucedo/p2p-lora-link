@@ -15,10 +15,10 @@ use log::{debug, warn};
 // ─── Constantes de canal ──────────────────────────────────────────────────────
 
 pub const DEFAULT_FREQ_HZ: u32 = 916_800_000; // AU915 sub-band 2 ch8
-pub const DEFAULT_SF: u8 = 7;
+pub const DEFAULT_SF: u8 = 12;
 pub const DEFAULT_BW_KHZ: u32 = 125;
 pub const DEFAULT_CR: &str = "4/5";
-pub const DEFAULT_TX_DBM: i8 = 14;
+pub const DEFAULT_TX_DBM: i8 = 22;
 
 // ─── IRQ masks ────────────────────────────────────────────────────────────────
 
