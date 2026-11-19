@@ -61,23 +61,20 @@ func main() {
 	}
 }
 
-// startContinuousRx configura el chip igual que lo hace Rx() del driver
-// y entra en RX Continuous permanente.
+// startContinuousRx configura y entra en RX Continuous permanente.
+// No usa SLEEP para evitar que la configuración del modem (SF, BW, etc.)
+// se pierda y vuelva a los valores por defecto.
 func startContinuousRx(radio *sx127x.Device) {
-	// El chip debe estar en SLEEP antes de cambiar configuraciones
-	radio.SetOpMode(sx127x.SX127X_OPMODE_SLEEP)
-	time.Sleep(10 * time.Millisecond)
-
 	// Configurar LNA a máximo gain
 	radio.WriteRegister(sx127x.SX127X_REG_LNA, 0x20)
 
-	// Mapear DIO0 = RxDone, DIO1 = RxTimeout (igual que Rx() del driver)
+	// Mapear DIO0 = RxDone, DIO1 = RxTimeout
 	radio.WriteRegister(sx127x.SX127X_REG_DIO_MAPPING_1, 0x00)
 
 	// Limpiar todos los IRQ flags
 	radio.WriteRegister(sx127x.SX127X_REG_IRQ_FLAGS, 0xFF)
 
-	// Desmaskar solo RxDone y RxTimeout (igual que Rx() del driver)
+	// Desmaskar solo RxDone y RxTimeout
 	// 0x3F = 00111111: bits 6 (RxDone) y 7 (RxTimeout) en 0 → desenmascaradas
 	radio.WriteRegister(sx127x.SX127X_REG_IRQ_FLAGS_MASK, 0x3F)
 
