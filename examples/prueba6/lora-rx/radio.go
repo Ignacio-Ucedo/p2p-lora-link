@@ -81,7 +81,19 @@ func setupRadio() *sx127x.Device {
 		SyncWord:       0x12,
 		LoraTxPowerDBm: 17,
 	})
+
+	// LoraConfig() solo guarda la configuración en memoria.
+	// Hay que aplicar los registros manualmente, igual que hace Rx()/Tx().
+	radio.SetFrequency(433000000)
+	radio.SetPreambleLength(16)
 	radio.SetSyncWord(0x12)
+	radio.SetBandwidth(lora.Bandwidth_125_0)
+	radio.SetSpreadingFactor(lora.SpreadingFactor9)
+	radio.SetIqMode(lora.IQStandard)
+	radio.SetCodingRate(lora.CodingRate4_5)
+	radio.SetCrc(true)
+	radio.SetTxPower(17)
+	radio.SetHeaderType(lora.HeaderExplicit)
 
 	radio.SetOpMode(sx127x.SX127X_OPMODE_STANDBY)
 	println("opmode final =", radio.ReadRegister(sx127x.SX127X_REG_OP_MODE))
