@@ -27,7 +27,7 @@ LoRa, conexiones, soldaduras, etc.)
 >- DIO0: Blanco GPIO26
 
 <img src="examples/images/esp32s3wroom1278.png" width="480"/>
-<img src="examples/images/esp32c31278.png" width="480"/>
+<img src="examples/images/esp32c31278.jpg" width="480"/>
 
 ## Prueba 1
 ### Transmitter: Esp32S3 / Receiver: Esp32WROOM
