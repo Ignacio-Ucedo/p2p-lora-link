@@ -13,23 +13,25 @@ func main() {
 	radio := setupRadio()
 	println("LoRa init OK")
 
-	// Entrar en RX Continuous. IRQ RxDone no se dispara en este modo,
-	// así que usamos polling del registro RX_NB_BYTES para detectar paquetes.
+	// Entrar en RX Continuous una sola vez. Las interrupciones DIO no funcionan
+	// en ESP32-C3 con TinyGo, así que usamos polling de RX_NB_BYTES.
 	startContinuousRx(radio)
-	opmode := radio.ReadRegister(sx127x.SX127X_REG_OP_MODE)
-	println("opmode RX Continuous =", opmode)
+	println("opmode RX Continuous =", radio.ReadRegister(sx127x.SX127X_REG_OP_MODE))
 
 	lastPrint := time.Now()
+	lastFifoAddr := uint8(0) // Marca de agua: FIFO_RX_CURRENT_ADDR cambia con cada paquete nuevo
 	for {
-		// Polling: en RX Continuous, IRQ RxDone no se dispara.
-		// Usamos RX_NB_BYTES para detectar paquetes listos en el FIFO.
 		rxNb := radio.ReadRegister(sx127x.SX127X_REG_RX_NB_BYTES)
+		fifoAddr := radio.ReadRegister(sx127x.SX127X_REG_FIFO_RX_CURRENT_ADDR)
 
-		if rxNb > 0 {
-			radio.WriteRegister(sx127x.SX127X_REG_IRQ_FLAGS, 0xFF) // Limpiar IRQ
+		// En RX Continuous, cada paquete nuevo actualiza FIFO_RX_CURRENT_ADDR
+		// para señalar el inicio del payload en el FIFO. Si el valor cambió
+		// y RX_NB_BYTES > 0, tenemos un paquete nuevo.
+		if rxNb > 0 && fifoAddr != lastFifoAddr {
 			t := time.Now()
 			pkt := readPacketFIFO(radio)
 			ms := time.Since(t).Milliseconds()
+			lastFifoAddr = fifoAddr // Guardar la marca de agua
 
 			if len(pkt) > 0 {
 				println("Recibido:", string(pkt), " (RSSI:", int8(radio.LastPacketRSSI()), "dBm) tras", ms, "ms")
