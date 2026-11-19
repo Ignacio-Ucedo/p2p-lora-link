@@ -13,20 +13,19 @@ func main() {
 	radio := setupRadio()
 	println("LoRa init OK")
 
-	// Entrar en RX Continuous. Las interrupciones de pin no funcionan en
-	// ESP32-C3 con TinyGo, así que usamos polling del registro IRQ_FLAGS.
+	// Entrar en RX Continuous. IRQ RxDone no se dispara en este modo,
+	// así que usamos polling del registro RX_NB_BYTES para detectar paquetes.
 	startContinuousRx(radio)
 	opmode := radio.ReadRegister(sx127x.SX127X_REG_OP_MODE)
 	println("opmode RX Continuous =", opmode)
 
 	lastPrint := time.Now()
-	count := 0
 	for {
-		count++
-		// Polling: leer IRQ flags directamente del registro
-		irq := radio.ReadRegister(sx127x.SX127X_REG_IRQ_FLAGS)
+		// Polling: en RX Continuous, IRQ RxDone no se dispara.
+		// Usamos RX_NB_BYTES para detectar paquetes listos en el FIFO.
+		rxNb := radio.ReadRegister(sx127x.SX127X_REG_RX_NB_BYTES)
 
-		if irq&0x40 != 0 { // Bit 6: RxDone
+		if rxNb > 0 {
 			radio.WriteRegister(sx127x.SX127X_REG_IRQ_FLAGS, 0xFF) // Limpiar IRQ
 			t := time.Now()
 			pkt := readPacketFIFO(radio)
@@ -38,16 +37,6 @@ func main() {
 				println("vacio tras", ms, "ms")
 			}
 			lastPrint = time.Now()
-		}
-
-		// Imprimir diagnóstico cada 100 iteraciones (~1 segundo)
-		if count%100 == 0 {
-			opmode := radio.ReadRegister(sx127x.SX127X_REG_OP_MODE)
-			irqMask := radio.ReadRegister(sx127x.SX127X_REG_IRQ_FLAGS_MASK)
-			rxNbBytes := radio.ReadRegister(sx127x.SX127X_REG_RX_NB_BYTES)
-			fifoCurrent := radio.ReadRegister(sx127x.SX127X_REG_FIFO_RX_CURRENT_ADDR)
-			modemCfg2 := radio.ReadRegister(sx127x.SX127X_REG_MODEM_CONFIG_2)
-			println("DIAG irq=", irq, " mask=", irqMask, " opmode=", opmode, " rxNb=", rxNbBytes, " fifoCur=", fifoCurrent, " modCfg2=", modemCfg2)
 		}
 
 		// Imprimir timeout cada 5 segundos sin actividad
