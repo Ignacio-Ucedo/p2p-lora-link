@@ -26,9 +26,7 @@ func main() {
 		// para señalar el inicio del payload en el FIFO. Si el valor cambió
 		// y RX_NB_BYTES > 0, tenemos un paquete nuevo.
 		if rxNb > 0 && fifoAddr != lastFifoAddr {
-			t := time.Now()
 			pkt := readPacketFIFO(radio)
-			ms := time.Since(t).Milliseconds()
 			lastFifoAddr = fifoAddr // Guardar la marca de agua
 
 			if len(pkt) > 0 {
