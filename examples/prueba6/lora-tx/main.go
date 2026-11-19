@@ -8,7 +8,7 @@ import (
 
 func main() {
 	time.Sleep(2 * time.Second)
-	println("LoRa Sender diag")
+	println("LoRa Sender OK")
 
 	radio := setupRadio()
 
@@ -19,13 +19,12 @@ func main() {
 			// Limpiar IRQ flags antes de cada transmisión
 			radio.WriteRegister(sx127x.SX127X_REG_IRQ_FLAGS, 0xFF)
 
-			println("Tx...")
-			msg := []byte("Hello World #" + itoa(n))
+ 			msg := []byte("Hello World #" + itoa(n))
 			err := radio.Tx(msg, 1000)
 			if err != nil {
 				println("Tx error:", err.Error())
 			} else {
-				println("Tx ok")
+				println("Enviado:", string(msg))
 				time.Sleep(50 * time.Millisecond) // Esperar a que el chip vuelva a STANDBY
 			}
 			time.Sleep(1000 * time.Millisecond)
@@ -33,9 +32,6 @@ func main() {
 	}()
 
 	for {
-		time.Sleep(500 * time.Millisecond)
-		println("DIO0=", pinDIO0.Get(),
-			" irq=", radio.ReadRegister(sx127x.SX127X_REG_IRQ_FLAGS),
-			" opmode=", radio.ReadRegister(sx127x.SX127X_REG_OP_MODE))
+		time.Sleep(1 * time.Second)
 	}
 }

@@ -8,15 +8,13 @@ import (
 
 func main() {
 	time.Sleep(2 * time.Second)
-	println("LoRa Receiver (ESP32-C3 / TinyGo + sx127x)")
+	println("LoRa Receiver OK")
 
 	radio := setupRadio()
-	println("LoRa init OK")
 
 	// Entrar en RX Continuous una sola vez. Las interrupciones DIO no funcionan
 	// en ESP32-C3 con TinyGo, así que usamos polling de RX_NB_BYTES.
 	startContinuousRx(radio)
-	println("opmode RX Continuous =", radio.ReadRegister(sx127x.SX127X_REG_OP_MODE))
 
 	lastPrint := time.Now()
 	lastFifoAddr := uint8(0) // Marca de agua: FIFO_RX_CURRENT_ADDR cambia con cada paquete nuevo
@@ -34,17 +32,14 @@ func main() {
 			lastFifoAddr = fifoAddr // Guardar la marca de agua
 
 			if len(pkt) > 0 {
-				println("Recibido:", string(pkt), " (RSSI:", int8(radio.LastPacketRSSI()), "dBm) tras", ms, "ms")
-			} else {
-				println("vacio tras", ms, "ms")
+				println("Recibido:", string(pkt), " (RSSI:", int8(radio.LastPacketRSSI()), "dBm)")
 			}
 			lastPrint = time.Now()
 		}
 
-		// Imprimir timeout cada 5 segundos sin actividad
+		// Timeout cada 5 segundos sin actividad
 		if time.Since(lastPrint) > 5000*time.Millisecond {
-			ms := time.Since(lastPrint).Milliseconds()
-			println("vacio tras", ms, "ms")
+			println("Sin actividad (5s)")
 			lastPrint = time.Now()
 		}
 

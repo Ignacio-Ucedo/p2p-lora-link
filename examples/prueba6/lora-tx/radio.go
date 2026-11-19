@@ -52,21 +52,17 @@ func setupRadio() *sx127x.Device {
 	}
 
 	radio.Reset()
-	println("opmode tras Reset =", radio.ReadRegister(sx127x.SX127X_REG_OP_MODE))
 
 	if !radio.DetectDevice() {
 		fatal("Starting LoRa failed (RegVersion != 0x12)", nil)
 	}
-	println("opmode tras Detect =", radio.ReadRegister(sx127x.SX127X_REG_OP_MODE))
 
 	// El bit LoRa solo se puede cambiar desde sleep
 	radio.SetOpMode(sx127x.SX127X_OPMODE_SLEEP)
 	time.Sleep(10 * time.Millisecond)
-	println("opmode tras sleep =", radio.ReadRegister(sx127x.SX127X_REG_OP_MODE))
 
 	radio.SetOpModeLora()
 	time.Sleep(10 * time.Millisecond)
-	println("opmode tras LoRa =", radio.ReadRegister(sx127x.SX127X_REG_OP_MODE))
 
 	radio.LoraConfig(lora.Config{
 		Freq:           433000000,
@@ -84,10 +80,6 @@ func setupRadio() *sx127x.Device {
 	radio.SetSyncWord(0x12)
 
 	radio.SetOpMode(sx127x.SX127X_OPMODE_STANDBY)
-	println("opmode final =", radio.ReadRegister(sx127x.SX127X_REG_OP_MODE))
-
-	println("RegVersion =", radio.GetVersion(),
-		" SyncWord =", radio.ReadRegister(sx127x.SX127X_REG_SYNC_WORD))
 	return radio
 }
 
