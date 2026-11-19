@@ -16,6 +16,9 @@ func main() {
 		n := 0
 		for {
 			n++
+			// Limpiar IRQ flags antes de cada transmisión
+			radio.WriteRegister(sx127x.SX127X_REG_IRQ_FLAGS, 0xFF)
+
 			println("Tx...")
 			msg := []byte("Hello World #" + itoa(n))
 			err := radio.Tx(msg, 1000)
@@ -23,6 +26,7 @@ func main() {
 				println("Tx error:", err.Error())
 			} else {
 				println("Tx ok")
+				time.Sleep(50 * time.Millisecond) // Esperar a que el chip vuelva a STANDBY
 			}
 			time.Sleep(1000 * time.Millisecond)
 		}
