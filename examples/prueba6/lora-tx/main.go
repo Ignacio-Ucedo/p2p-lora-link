@@ -18,7 +18,7 @@ func main() {
 			n++
 			println("Tx...")
 			msg := []byte("Hello World #" + itoa(n))
-			err := radio.Tx(msg, 200)
+			err := radio.Tx(msg, 1000)
 			if err != nil {
 				println("Tx error:", err.Error())
 			} else {
