@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "node"
-path = "src/main.rs"
+name = "tx"
+path = "src/bin/tx.rs"
 
 [dependencies]
 lr1121 = { path = "../lr1121" }

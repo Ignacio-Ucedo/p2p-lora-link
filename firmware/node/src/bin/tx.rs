@@ -1,4 +1,4 @@
-//! node — nodo transmisor LoRa (ESP32-C3 + LR1121) con control por BLE GATT.
+//! tx — nodo transmisor LoRa (ESP32-C3 + LR1121) con control por BLE GATT.
 //!
 //! Pinout LR1121 → ESP32-C3:  CS=7  CLK=4  MOSI=6  MISO=5  RESET=3  BUSY=10
 //!

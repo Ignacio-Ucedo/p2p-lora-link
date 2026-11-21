@@ -17,8 +17,10 @@ firmware/
 ├── lr1121/               # driver LR1121 (Rust + FFI a SWDR001)
 │   ├── src/lib.rs
 │   └── vendor/           # SWDR001 (Lora-net), driver C de Semtech
-└── node/                 # binario del nodo: SPI + radio @915 + TX + BLE GATT
-    ├── src/main.rs
+└── node/                 # crate con los dos roles
+    ├── src/bin/
+    │   ├── tx.rs         # transmisor: TX cada 2 s + control BLE GATT
+    │   └── rx.rs         # receptor: RX continuo + log RSSI/SNR/PER por serial
     └── sdkconfig.defaults
 ```
 
@@ -53,7 +55,7 @@ El crate `node` tiene dos binarios con roles distintos:
 
 | Binario | Rol | Fuente |
 |---------|-----|--------|
-| `node`  | **Transmisor** — manda paquetes `P2` cada 2 s + control BLE | `src/main.rs` |
+| `tx`    | **Transmisor** — manda paquetes `P2` cada 2 s + control BLE | `src/bin/tx.rs` |
 | `rx`    | **Receptor** — escucha en RX continuo, loguea RSSI/SNR/PER por serial | `src/bin/rx.rs` |
 
 Ambos arrancan con los mismos parámetros de radio (`DEFAULT_*` del driver):
@@ -89,8 +91,8 @@ El valor se lee/escribe como JSON (en escrituras, base64 del JSON).
 ```bash
 cd firmware
 . ~/export-esp.sh
-cargo build --release -p node
-espflash flash --monitor target/riscv32imc-esp-espidf/release/node
+cargo build --release --bin tx
+espflash flash --monitor target/riscv32imc-esp-espidf/release/tx
 ```
 
 Qué deberías ver:
